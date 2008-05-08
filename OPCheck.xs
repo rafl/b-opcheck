@@ -1,0 +1,204 @@
+//#define PERL_CORE
+
+#include "EXTERN.h"
+#include "perl.h"
+#include "embed.h"
+
+#include "XSUB.h"
+#define NEED_sv_2pv_flags
+#include "ppport.h"
+#include "opcode.h"
+
+typedef OP* (CPERLscope(*Perl_check_t)) (pTHX_ OP*);
+
+static AV **OPCHECK_subs;
+Perl_check_t *PL_check_orig;
+
+/* ============================================
+   This is from Runops::Hook.  We need to find a way to share c functions
+*/
+
+static bool Runops_Hook_loaded_B;
+static GV *Runops_Hook_B_UNOP_stash;
+static UNOP Runops_Hook_fakeop;
+static SV *Runops_Hook_fakeop_sv;
+
+
+void
+Runops_Hook_load_B (pTHX) {
+	if (!Runops_Hook_loaded_B) {
+		load_module( PERL_LOADMOD_NOIMPORT, newSVpv("B", 0), newSViv(0) );
+		Runops_Hook_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Hook_fakeop)), gv_stashpv("B::UNOP", 0));
+		Runops_Hook_loaded_B = 1;
+	}
+}
+
+SV *
+Runops_Hook_op_to_BOP (pTHX_ OP *op) {
+	dSP;
+	/* this assumes Runops_Hook_load_B() has already been called */
+
+	/* we fake B::UNOP object (fakeop_sv) that points to our static fakeop.
+	 * then we set first_op to the op we want to make an object out of, and
+	 * trampoline into B::UNOP->first so that it creates the B::OP of the
+	 * correct class for us.
+	 * B should really have a way to create an op from a pointer via some
+	 * external API. This sucks monkey balls on olympic levels */
+
+	Runops_Hook_fakeop.op_first = op;
+
+	PUSHMARK(SP);
+	XPUSHs(Runops_Hook_fakeop_sv);
+	PUTBACK;
+
+	call_pv("B::UNOP::first", G_SCALAR);
+
+	SPAGAIN;
+
+	return POPs;
+}
+
+/* ============================================
+   End of Runops::Hook.  We need to find a way to share c functions
+*/
+
+void
+OPCHECK_call_ck(pTHX_ SV *sub, OP *o) {
+    dSP;
+    ENTER;
+    SAVETMPS;
+
+    SV *PL_op_object = Runops_Hook_op_to_BOP(aTHX_ o);
+
+    PUSHMARK(SP);
+    XPUSHs(PL_op_object);
+
+    PUTBACK;
+
+    call_sv(sub, G_DISCARD);
+
+    SPAGAIN;
+
+    PUTBACK;
+    FREETMPS;
+    LEAVE;
+
+}
+
+OP *OPCHECK_ck_subr(pTHX_ OP *o) {
+    /*
+     * work around a %^H scoping bug by checking that PL_hints (which is properly scoped) & an unused
+     * PL_hints bit (0x100000) is true
+     */
+     I32 opnum = o->op_type;
+    if ((PL_hints & 0x120000) == 0x120000) {
+       AV *subs = OPCHECK_subs[opnum];
+       if (subs) {
+           int i;
+           for (i = 0; i <= av_len(subs); ++i) {
+               SV **sub = av_fetch(subs, i, 0);
+               if (SvOK(*sub)) {
+                   OPCHECK_call_ck(aTHX_ *sub, o);
+               }
+               else {
+                   return PL_check_orig[opnum](aTHX_ o);
+               }
+           }
+        }
+    }
+
+    return PL_check_orig[o->op_type](aTHX_ o);
+}
+
+/* ============================================
+   from B.xs.  We need to find a way to share c functions
+*/
+
+static I32
+op_name_to_num(SV * name)
+{
+    dTHX;
+    char const *s;
+    char *wanted = SvPV_nolen(name);
+    int i =0;
+    int topop = OP_max;
+
+#ifdef PERL_CUSTOM_OPS
+    topop--;
+#endif
+
+    if (SvIOK(name) && SvIV(name) >= 0 && SvIV(name) < topop)
+        return SvIV(name);
+
+    for (s = PL_op_name[i]; s; s = PL_op_name[++i]) {
+        if (strEQ(s, wanted))
+            return i;
+    }
+#ifdef PERL_CUSTOM_OPS
+    if (PL_custom_op_names) {
+        HE* ent;
+        SV* value;
+        /* This is sort of a hv_exists, backwards */
+        (void)hv_iterinit(PL_custom_op_names);
+        while ((ent = hv_iternext(PL_custom_op_names))) {
+            if (strEQ(SvPV_nolen(hv_iterval(PL_custom_op_names,ent)),wanted))
+                return OP_CUSTOM;
+        }
+    }
+#endif
+
+    croak("No such op \"%s\"", SvPV_nolen(name));
+
+    return -1;
+}
+
+/* ============================================
+   end of code form B.  We need to find a way to share c functions
+*/
+
+MODULE = B::OPCheck                PACKAGE = B::OPCheck
+
+PROTOTYPES: ENABLE
+
+BOOT:
+Newx(PL_check_orig, OP_CUSTOM+1, Perl_check_t);
+Newxz(OPCHECK_subs, OP_CUSTOM+1, AV *);
+Copy(PL_check, PL_check_orig, OP_CUSTOM+1, Perl_check_t);
+Runops_Hook_load_B(aTHX);
+
+void
+enterscope(opname, perlsub)
+    SV *opname
+    SV *perlsub
+    I32 opnum = op_name_to_num(opname);
+PROTOTYPE:
+CODE: 
+    PL_check[opnum] = OPCHECK_ck_subr;
+    if (!OPCHECK_subs[opnum]) {
+        OPCHECK_subs[opnum] = SvREFCNT_inc(newAV());
+        SvREADONLY_off(OPCHECK_subs[opnum]);
+    }
+    av_push(OPCHECK_subs[opnum], SvREFCNT_inc(perlsub));
+
+void
+leavescope()
+    PROTOTYPE:
+    CODE: 
+        Zero(PL_check, OP_CUSTOM+1, Perl_check_t);
+
+void
+END()
+    PROTOTYPE:
+    CODE: 
+
+AV *
+get_guts(opname)
+    SV *opname
+    I32 opnum = op_name_to_num(opname);
+	CODE:
+{
+    RETVAL = OPCHECK_subs[opnum];
+}
+	OUTPUT:
+		RETVAL
+    
