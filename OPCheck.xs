@@ -101,14 +101,14 @@ OPCHECK_call_ck(pTHX_ SV *sub, OP *o) {
 }
 
 OP *OPCHECK_ck_subr(pTHX_ OP *o) {
-    /*
-     * work around a %^H scoping bug by checking that PL_hints (which is properly scoped) & an unused
-     * PL_hints bit (0x100000) is true
-     */
     I32 opnum = o->op_type;
 
     o = PL_check_orig[opnum](aTHX_ o);
 
+    /*
+     * work around a %^H scoping bug by checking that PL_hints (which is properly scoped) & an unused
+     * PL_hints bit (0x100000) is true
+     */
     if ((PL_hints & 0x120000) == 0x120000) {
         if ( opnum == OP_ENTERSUB ) {
             OP *prev = ((cUNOPo->op_first->op_sibling) ? cUNOPo : ((UNOP*)cUNOPo->op_first))->op_first;
