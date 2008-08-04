@@ -230,7 +230,7 @@ CODE:
         for ( i = av_len(av); i >= 0; i-- ) {
             SV **elem = av_fetch(av, i, 0);;
             if ( elem && *elem == perlsub ) {
-                av_delete(av, i, G_DISCARD);
+                av_store(av, i, &PL_sv_undef);
                 break;
             }
         }
