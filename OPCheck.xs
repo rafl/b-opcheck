@@ -10,9 +10,10 @@
 #define NEED_vload_module
 #define NEED_sv_2pv_flags
 #include "ppport.h"
-#include "opcode.h"
 
+#if PERL_VERSION < 9
 typedef OP* (CPERLscope(*Perl_check_t)) (pTHX_ OP*);
+#endif
 
 STATIC AV **OPCHECK_subs;
 Perl_check_t *PL_check_orig;
