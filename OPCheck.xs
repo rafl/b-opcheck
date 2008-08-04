@@ -100,7 +100,15 @@ OP *OPCHECK_ck_subr(pTHX_ OP *o) {
      * work around a %^H scoping bug by checking that PL_hints (which is properly scoped) & an unused
      * PL_hints bit (0x100000) is true
      */
-     I32 opnum = o->op_type;
+    I32 opnum = o->op_type;
+    if ( opnum == OP_ENTERSUB ) {
+       SVOP *method_named = ((LISTOP *)o)->op_last;
+       if ( method_named->op_type == OP_METHOD_NAMED ) {
+           if ( strEQ(SvPV_nolen(method_named->op_sv), "unimport") ) {
+               return PL_check_orig[OP_ENTERSUB](aTHX_ o);
+            }
+        }
+    }
     if ((PL_hints & 0x120000) == 0x120000) {
        AV *subs = OPCHECK_subs[opnum];
        if (subs) {
@@ -117,7 +125,7 @@ OP *OPCHECK_ck_subr(pTHX_ OP *o) {
         }
     }
 
-    return PL_check_orig[o->op_type](aTHX_ o);
+    return PL_check_orig[opnum](aTHX_ o);
 }
 
 /* ============================================
