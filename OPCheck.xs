@@ -192,8 +192,9 @@ Newxz(OPCHECK_subs, OP_CUSTOM+1, AV *);
 Runops_Trace_load_B(aTHX);
 
 void
-enterscope(opname, perlsub)
+enterscope(opname, mode, perlsub)
     SV *opname
+    SV *mode
     SV *perlsub
 PROTOTYPE: $$
 PREINIT:
@@ -212,8 +213,9 @@ CODE:
     av_push(OPCHECK_subs[opnum], SvREFCNT_inc(perlsub));
 
 void
-leavescope(opname, perlsub)
+leavescope(opname, mode, perlsub)
     SV *opname
+    SV *mode
     SV *perlsub
 PROTOTYPE: $$
 PREINIT:

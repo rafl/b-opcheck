@@ -22,10 +22,10 @@ sub import {
     my $by_opname = $^H{OPCHECK_leavescope} ||= {};
     my $guards = $by_opname->{$opname} ||= [];
     push @$guards, Scope::Guard->new(sub {
-        leavescope($opname, $sub);
+        leavescope($opname, $mode, $sub);
     });
 
-    enterscope($opname, $sub );
+    enterscope($opname, $mode, $sub);
 }
 
 sub unimport {
