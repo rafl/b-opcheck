@@ -78,6 +78,7 @@ OPCHECK_call_ck(pTHX_ SV *sub, OP *o) {
     ENTER;
     SAVETMPS;
 
+
     PL_op_object = Runops_Trace_op_to_BOP(aTHX_ o);
 
     PUSHMARK(SP);
@@ -101,31 +102,38 @@ OP *OPCHECK_ck_subr(pTHX_ OP *o) {
      * PL_hints bit (0x100000) is true
      */
     I32 opnum = o->op_type;
-    if ( opnum == OP_ENTERSUB ) {
-       SVOP *method_named = ((LISTOP *)o)->op_last;
-       if ( method_named->op_type == OP_METHOD_NAMED ) {
-           if ( strEQ(SvPV_nolen(method_named->op_sv), "unimport") ) {
-               return PL_check_orig[OP_ENTERSUB](aTHX_ o);
+
+    o = PL_check_orig[opnum](aTHX_ o);
+
+    if ((PL_hints & 0x120000) == 0x120000) {
+        if ( opnum == OP_ENTERSUB ) {
+            OP *prev = ((cUNOPo->op_first->op_sibling) ? cUNOPo : ((UNOP*)cUNOPo->op_first))->op_first;
+            OP *o2 = prev->op_sibling;
+            OP *cvop;
+
+            for (cvop = o2; cvop->op_sibling; cvop = cvop->op_sibling);
+
+            if (cvop->op_type == OP_METHOD_NAMED) {
+                const char * meth = SvPVX_const(((SVOP *)cvop)->op_sv);
+                if ( meth && ( strEQ(meth, "import") || strEQ(meth, "unimport") || strEQ(meth, "VERSION")))
+                    return o;
+            }
+        }
+
+        AV *subs = OPCHECK_subs[opnum];
+        if (subs) {
+            int i;
+            for (i = 0; i <= av_len(subs); ++i) {
+                SV **sub = av_fetch(subs, i, 0);
+                if (SvOK(*sub)) {
+                    /* FIXME replace? before? after? */
+                    OPCHECK_call_ck(aTHX_ *sub, o);
+                }
             }
         }
     }
-    if ((PL_hints & 0x120000) == 0x120000) {
-       AV *subs = OPCHECK_subs[opnum];
-       if (subs) {
-           int i;
-           for (i = 0; i <= av_len(subs); ++i) {
-               SV **sub = av_fetch(subs, i, 0);
-               if (SvOK(*sub)) {
-                   OPCHECK_call_ck(aTHX_ *sub, o);
-               }
-               else {
-                   return PL_check_orig[opnum](aTHX_ o);
-               }
-           }
-        }
-    }
 
-    return PL_check_orig[opnum](aTHX_ o);
+    return o;
 }
 
 /* ============================================
