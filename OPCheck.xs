@@ -72,11 +72,13 @@ Runops_Trace_op_to_BOP (pTHX_ OP *op) {
 
 void
 OPCHECK_call_ck(pTHX_ SV *sub, OP *o) {
+    SV *PL_op_object;
     dSP;
+
     ENTER;
     SAVETMPS;
 
-    SV *PL_op_object = Runops_Hook_op_to_BOP(aTHX_ o);
+    PL_op_object = Runops_Trace_op_to_BOP(aTHX_ o);
 
     PUSHMARK(SP);
     XPUSHs(PL_op_object);
