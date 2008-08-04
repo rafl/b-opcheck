@@ -8,15 +8,16 @@ my @results;
 
 sub dothis {
     my $op = $_[0];
-    push @results, $_[0]->name
+    push @results, $op->name;
 }
 
-{
+sub test {
     use B::OPCheck entersub => 'replace', \&dothis;
     foo(1,2);
+    printf "foo";
+    foo("dancing");
     no B::OPCheck;
     foo(2,3);
 }
 
-is_deeply(\@results, ['entersub']); # XXX: need to ignore the leavescope call
-warn Dumper(\@results);use Data::Dumper;
+is_deeply(\@results, [('entersub') x 2]);
