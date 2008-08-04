@@ -179,30 +179,56 @@ MODULE = B::OPCheck                PACKAGE = B::OPCheck
 PROTOTYPES: ENABLE
 
 BOOT:
-Newx(PL_check_orig, OP_CUSTOM+1, Perl_check_t);
+Newxz(PL_check_orig, OP_CUSTOM+1, Perl_check_t);
 Newxz(OPCHECK_subs, OP_CUSTOM+1, AV *);
-Copy(PL_check, PL_check_orig, OP_CUSTOM+1, Perl_check_t);
-Runops_Hook_load_B(aTHX);
+Runops_Trace_load_B(aTHX);
 
 void
 enterscope(opname, perlsub)
     SV *opname
     SV *perlsub
+PROTOTYPE: $$
+PREINIT:
     I32 opnum = op_name_to_num(opname);
-PROTOTYPE:
-CODE: 
-    PL_check[opnum] = OPCHECK_ck_subr;
+CODE:
+    if ( !PL_check_orig[opnum] ) {
+        PL_check_orig[opnum] = PL_check[opnum];
+        PL_check[opnum] = OPCHECK_ck_subr;
+    }
+
     if (!OPCHECK_subs[opnum]) {
-        OPCHECK_subs[opnum] = SvREFCNT_inc(newAV());
+        OPCHECK_subs[opnum] = (AV *)SvREFCNT_inc(newAV());
         SvREADONLY_off(OPCHECK_subs[opnum]);
     }
+
     av_push(OPCHECK_subs[opnum], SvREFCNT_inc(perlsub));
 
 void
-leavescope()
-    PROTOTYPE:
-    CODE: 
-        Zero(PL_check, OP_CUSTOM+1, Perl_check_t);
+leavescope(opname, perlsub)
+    SV *opname
+    SV *perlsub
+PROTOTYPE: $$
+PREINIT:
+    AV *av;
+    I32 opnum = op_name_to_num(opname);
+CODE:
+    if (av = OPCHECK_subs[opnum]) {
+        I32 i;
+        for ( i = av_len(av); i >= 0; i-- ) {
+            SV **elem = av_fetch(av, i, 0);;
+            if ( elem && *elem == perlsub ) {
+                av_delete(av, i, G_DISCARD);
+                break;
+            }
+        }
+
+        if ( av_len(av) == -1 ) {
+            SvREFCNT_dec(av);
+            OPCHECK_subs[opnum] = NULL;
+            PL_check[opnum] = PL_check_orig[opnum];
+            PL_check_orig[opnum] = NULL;
+        }
+    }
 
 void
 END()
