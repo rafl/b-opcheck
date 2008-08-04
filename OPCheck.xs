@@ -110,6 +110,8 @@ OP *OPCHECK_ck_subr(pTHX_ OP *o) {
      * PL_hints bit (0x100000) is true
      */
     if ((PL_hints & 0x120000) == 0x120000) {
+        AV *subs;
+
         if ( opnum == OP_ENTERSUB ) {
             OP *prev = ((cUNOPo->op_first->op_sibling) ? cUNOPo : ((UNOP*)cUNOPo->op_first))->op_first;
             OP *o2 = prev->op_sibling;
@@ -124,7 +126,7 @@ OP *OPCHECK_ck_subr(pTHX_ OP *o) {
             }
         }
 
-        AV *subs = OPCHECK_subs[opnum];
+        subs = OPCHECK_subs[opnum];
         if (subs) {
             int i;
             for (i = 0; i <= av_len(subs); ++i) {
