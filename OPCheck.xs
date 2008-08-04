@@ -234,7 +234,6 @@ CODE:
             SV **elem = av_fetch(av, i, 0);;
             if ( elem && *elem == perlsub ) {
                 av_delete(av, i, G_DISCARD);
-                break;
             }
         }
 
