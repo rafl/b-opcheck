@@ -1,10 +1,13 @@
-//#define PERL_CORE
+/*#define PERL_CORE */
 
 #include "EXTERN.h"
 #include "perl.h"
 #include "embed.h"
 
 #include "XSUB.h"
+#define NEED_load_module
+#define NEED_newRV_noinc
+#define NEED_vload_module
 #define NEED_sv_2pv_flags
 #include "ppport.h"
 #include "opcode.h"
