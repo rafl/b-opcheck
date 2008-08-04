@@ -11,51 +11,59 @@
 
 typedef OP* (CPERLscope(*Perl_check_t)) (pTHX_ OP*);
 
-static AV **OPCHECK_subs;
+STATIC AV **OPCHECK_subs;
 Perl_check_t *PL_check_orig;
 
 /* ============================================
    This is from Runops::Hook.  We need to find a way to share c functions
 */
 
-static bool Runops_Hook_loaded_B;
-static GV *Runops_Hook_B_UNOP_stash;
-static UNOP Runops_Hook_fakeop;
-static SV *Runops_Hook_fakeop_sv;
+STATIC int Runops_Trace_loaded_B;
+STATIC CV *Runops_Trace_B_UNOP_first;
+STATIC XSUBADDR_t Runops_Trace_B_UNOP_first_xsub;
+STATIC UNOP Runops_Trace_fakeop;
+STATIC SV *Runops_Trace_fakeop_sv;
 
+STATIC void
+Runops_Trace_load_B (pTHX) {
+    if (!Runops_Trace_loaded_B) {
+        load_module( PERL_LOADMOD_NOIMPORT, newSVpv("B", 0), (SV *)NULL );
 
-void
-Runops_Hook_load_B (pTHX) {
-	if (!Runops_Hook_loaded_B) {
-		load_module( PERL_LOADMOD_NOIMPORT, newSVpv("B", 0), newSViv(0) );
-		Runops_Hook_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Hook_fakeop)), gv_stashpv("B::UNOP", 0));
-		Runops_Hook_loaded_B = 1;
-	}
+        Runops_Trace_B_UNOP_first = get_cv("B::UNOP::first", TRUE);
+        Runops_Trace_B_UNOP_first_xsub = CvXSUB(Runops_Trace_B_UNOP_first);
+
+        Runops_Trace_fakeop_sv = sv_bless(newRV_noinc(newSVuv((UV)&Runops_Trace_fakeop)), gv_stashpv("B::UNOP", 0));
+
+        Runops_Trace_loaded_B = 1;
+    }
 }
 
-SV *
-Runops_Hook_op_to_BOP (pTHX_ OP *op) {
-	dSP;
-	/* this assumes Runops_Hook_load_B() has already been called */
+STATIC SV *
+Runops_Trace_op_to_BOP (pTHX_ OP *op) {
+    dSP;
 
-	/* we fake B::UNOP object (fakeop_sv) that points to our static fakeop.
-	 * then we set first_op to the op we want to make an object out of, and
-	 * trampoline into B::UNOP->first so that it creates the B::OP of the
-	 * correct class for us.
-	 * B should really have a way to create an op from a pointer via some
-	 * external API. This sucks monkey balls on olympic levels */
+    /* we fake B::UNOP object (fakeop_sv) that points to our static fakeop.
+     * then we set first_op to the op we want to make an object out of, and
+     * trampoline into B::UNOP->first so that it creates the B::OP of the
+     * correct class for us.
+     * B should really have a way to create an op from a pointer via some
+     * external API. This sucks monkey balls on olympic levels */
 
-	Runops_Hook_fakeop.op_first = op;
+    Runops_Trace_fakeop.op_first = op;
 
-	PUSHMARK(SP);
-	XPUSHs(Runops_Hook_fakeop_sv);
-	PUTBACK;
+    PUSHMARK(SP);
+    XPUSHs(Runops_Trace_fakeop_sv);
+    PUTBACK;
 
-	call_pv("B::UNOP::first", G_SCALAR);
+    /* call_pv("B::UNOP::first", G_SCALAR); */
+    assert(Runops_Trace_loaded_B);
+    assert(Runops_Trace_B_UNOP_first);
+    assert(Runops_Trace_B_UNOP_first_xsub != NULL);
+    (void)Runops_Trace_B_UNOP_first_xsub(aTHX_ Runops_Trace_B_UNOP_first);
 
-	SPAGAIN;
+    SPAGAIN;
 
-	return POPs;
+    return POPs;
 }
 
 /* ============================================
