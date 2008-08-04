@@ -12,7 +12,7 @@ sub dothis {
 }
 
 sub test {
-    use B::OPCheck entersub => 'replace', \&dothis;
+    use B::OPCheck entersub => check => \&dothis;
     foo(1,2);
     printf "foo";
     foo("dancing");
