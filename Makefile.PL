@@ -5,4 +5,7 @@ use inc::Module::Install 0.75;
 name        'B-OPCheck';
 all_from    'lib/B/OPCheck.pm';
 
+requires 'Scope::Guard';
+requires 'XSLoader';
+
 sign; WriteAll;
