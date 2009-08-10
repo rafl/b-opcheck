@@ -11,7 +11,7 @@ use Scalar::Util;
 use Scope::Guard;
 use B::Utils ();
 
-our $VERSION = '0.27';
+our $VERSION = '0.28';
 
 XSLoader::load 'B::OPCheck', $VERSION;
 
@@ -32,7 +32,7 @@ sub import {
 sub unimport {
     my ($class, $opname) = @_;
 
-    if ( defined $opname ) { 
+    if ( defined $opname ) {
         my $by_opname = $^H{OPCHECK_leavescope};
         delete $by_opname->{$opname};
         return if scalar keys %$by_opname; # don't delete other things

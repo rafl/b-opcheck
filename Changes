@@ -1,0 +1,5 @@
+0.28  Mon, 10 Aug 2009 07:01:13 +0200
+  * Ship with a real changelog
+  * Declare dependency on Scope::Guard and XSLoader.
+  * Fix some compiler warnings.
+  * Upgrade ppport.h from 3.13 to 3.19.
