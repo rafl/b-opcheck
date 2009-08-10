@@ -155,7 +155,6 @@ Runops_Trace_load_B(aTHX);
 void
 enterscope(opname, mode, perlsub)
     SV *opname
-    SV *mode
     SV *perlsub
 PROTOTYPE: $$
 PREINIT:
@@ -176,14 +175,13 @@ CODE:
 void
 leavescope(opname, mode, perlsub)
     SV *opname
-    SV *mode
     SV *perlsub
 PROTOTYPE: $$
 PREINIT:
     AV *av;
     I32 opnum = BUtils_op_name_to_num(opname);
 CODE:
-    if (av = OPCHECK_subs[opnum]) {
+    if ((av = OPCHECK_subs[opnum])) {
         I32 i;
         for ( i = av_len(av); i >= 0; i-- ) {
             SV **elem = av_fetch(av, i, 0);;
