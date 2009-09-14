@@ -1,3 +1,6 @@
+  * Require ExtUtils::Depends 0.302 to properly work on Win32+gcc
+    (Alexandr Ciornii).
+
 0.28  Mon, 10 Aug 2009 07:01:13 +0200
   * Ship with a real changelog
   * Declare dependency on Scope::Guard and XSLoader.
