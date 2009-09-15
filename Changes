@@ -1,3 +1,4 @@
+0.29  Tue, 15 Sep 2009 08:04:28 +0200
   * Require ExtUtils::Depends 0.302 to properly work on Win32+gcc
     (Alexandr Ciornii).
 
