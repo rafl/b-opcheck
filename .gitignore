@@ -1,8 +1,10 @@
 .*
 !.gitignore
+!.travis.yml
 Makefile*
 !Makefile.PL
 META.yml
+MYMETA.*
 blib
 build
 inc
